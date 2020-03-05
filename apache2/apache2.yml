@@ -1,0 +1,44 @@
+- hosts: webservers
+  become: true
+  vars:
+    app_user: "nobody"
+    http_host: "not-enough-seats"
+    http_conf: "not-enough-seats.conf"
+    http_port: "80"
+
+  tasks:
+    - name: Install Apache2
+      apt: name=apache2 update_cache=yes state=latest
+
+    - name: Create root Apache directory
+      file:
+        path: "/var/www/{{ http_host }}"
+        state: directory
+        owner: "{{ app_user }}"
+        mode: '0755'
+
+    - name: Copy index page
+      template:
+        src: "index.html.j2"
+        dest: "/var/www/{{ http_host }}/index.html"
+
+    - name: Setup apache vHost
+      template:
+        src: "apache.conf.j2"
+        dest: "/etc/apache2/sites-available/{{ http_conf }}"
+
+    - name: Enable new HTTP host
+      shell: /usr/sbin/a2ensite {{ http_conf }}
+      notify: Reload Apache
+
+    - name: Disable default apache site
+      shell: /usr/sbin/a2dissite 000-default.conf
+      notify: Reload Apache
+
+
+  handlers:
+    - name: Reload Apache
+      service:
+        name: apache2
+        state: reloaded    
+
